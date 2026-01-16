@@ -4,6 +4,7 @@ type DagEdge = {
     label: string;
     target: string;
     transition: TransitionType;
+    external?: false;
 }
 
 type NodeType = "component" | "page";

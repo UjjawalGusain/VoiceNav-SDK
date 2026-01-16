@@ -34,12 +34,20 @@ export interface SessionCreationResponse {
     expiry: string;
 }
 
-export interface CreateTaskResponse {
+export type CreateTaskResponse = {
+    kind: "success";
     sessionId: string;
     taskId: string;
     updatedExpiry: string;
     executionPipeline: PlanStep[];
+} | {
+    kind: "error";
+    sessionId: string;
+    taskId: string;
+    updatedExpiry: string;
+
 }
+
 
 export type ExecuteWorkerSuccessResponse = {
     executionObject: ExecutionObject;
