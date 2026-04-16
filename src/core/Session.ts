@@ -1,54 +1,75 @@
 import { SDKState } from "../types/session";
 import { VDomHandler } from "./VDomHandler";
-
-export function startVDomSession(options?: {
-  root?: HTMLElement;
-  intervalMs?: number;
-}) {
-  console.log("Vdom started - 1");
-  const root = options?.root ?? document.body;
-  console.log(root)
-  const intervalMs = options?.intervalMs ?? 20_000;
-  console.log(intervalMs)
-  const handler = new VDomHandler(root);
-  console.log(handler)
-  const intervalId = window.setInterval(() => {
-    const snapshot = handler.getSafeVirtualDomSnapshot();
-    console.log("===== VDOM SNAPSHOT =====");
-    handler.printDom(snapshot);
-  }, intervalMs);
-
-  return {
-    stop() {
-      clearInterval(intervalId);
-    },
-  };
-}
+import { SafeVNode } from "../types/vdom";
 
 class SessionManager {
     private state: SDKState = { status: "idle" };
+    private vdomStopper: (() => void) | null = null;
+    private vdomHandler: VDomHandler | null = null;
+
 
     startSession(sessionId: string, taskId: string) {
+        if (this.state.status === "running") {
+            throw new Error("Session already active");
+        }
+
         this.state = {
             status: "running",
             sessionId,
             taskId,
             stepIndex: 0,
         };
+
+        sessionStorage.setItem(
+            "voicenav_session",
+            JSON.stringify({ sessionId, taskId, stepIndex: 0 })
+        );
+
+        this.startVDom();
+        console.log("Vdom has started")
     }
 
+
+    private startVDom(options?: { root?: HTMLElement; intervalMs?: number }) {
+        console.log("We are here");
+        const root = options?.root ?? document.body;
+
+        this.vdomHandler = new VDomHandler(root);
+
+        this.vdomStopper = () => {
+            this.vdomHandler = null;
+        };
+    }
+
+
     endSession() {
+        this.stopVDom();
         this.state = { status: "completed" };
+
+        sessionStorage.removeItem("voicenav_session");
     }
 
     failSession(error: string) {
+        this.stopVDom();
         this.state = { status: "error", error };
+
+        sessionStorage.removeItem("voicenav_session");
     }
 
     reset() {
+        this.stopVDom();
         this.state = { status: "idle" };
+
+        sessionStorage.removeItem("voicenav_session");
     }
 
+    private stopVDom() {
+        if (this.vdomStopper) {
+            this.vdomStopper();
+            this.vdomHandler?.disconnect();
+            this.vdomStopper = null;
+        }
+    }
 
     advanceStep() {
         if (this.state.status !== "running") {
@@ -58,8 +79,16 @@ class SessionManager {
             ...this.state,
             stepIndex: this.state.stepIndex + 1,
         };
-    }
 
+        sessionStorage.setItem(
+            "voicenav_session",
+            JSON.stringify({
+                sessionId: this.state.sessionId,
+                taskId: this.state.taskId,
+                stepIndex: this.state.stepIndex
+            })
+        );
+    }
 
     isActive(): boolean {
         return this.state.status === "running";
@@ -69,16 +98,32 @@ class SessionManager {
         return this.state;
     }
 
-    getSessionIdentifiers(): { sessionId: string; taskId: string } {
+    getSessionIdentifiers(): { sessionId: string; taskId: string, stepIndex: number } {
         if (this.state.status !== "running") {
             throw new Error("No active session");
         }
         return {
             sessionId: this.state.sessionId,
             taskId: this.state.taskId,
+            stepIndex: this.state.stepIndex,
         };
     }
+
+    getVDomHandler(): VDomHandler {
+        if (!this.vdomHandler) {
+            throw new Error("VDOM not initialized");
+        }
+        return this.vdomHandler;
+    }
+
+
+    getVDOM(): SafeVNode | null {
+        if (this.state.status !== "running") {
+            return null;
+        }
+        return this.vdomHandler?.getSafeVirtualDomSnapshot() ?? null;
+    }
+
 }
 
 export default SessionManager;
-

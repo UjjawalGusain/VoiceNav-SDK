@@ -1,34 +1,29 @@
-type Click = {
+export type Click = {
     type: "click",
 }
 
-type Input = {
+export type Input = {
     type: "input",
-    payload: {
-        value: string;
-        clearBefore: boolean;
-    }
+    text: string
 }
 
-type Read = {
+export type Read = {
     type: "read",
-    payload: {
-        context: string;
-    }
+    content: string
 }
 
-type Scroll = {
+export type Scroll = {
     type: "scroll",
-    payload: {
-        x: number;
-        y: number;
+    direction: {
+        x: number,
+        y: number
     }
 }
 
 
-type Action = Click | Input | Read | Scroll;
+export type Action = Click | Input | Read | Scroll;
 
-type Target = {
+export type Target = {
     strategy: "id" | "css" | "xpath" | "aria" | "relative";
     value: string;
 };
@@ -42,13 +37,8 @@ type Constraints = {
 
 export interface ExecutionObject {
     id: string;
-    sessionId: string;
-    stepIndex: number;
-
     action: Action;
-
-    target: Target[];
-
+    targets: Target[];
     constraints?: Constraints;
 }
 

@@ -9,10 +9,12 @@ export class VDomHandler {
     #virtualDom: VNode | null;
     #observerOptions: MutationObserverInit;
     #mutationObserver: MutationObserver;
+    #nodeIdToElement: Map<string, HTMLElement>;
 
     constructor(root: HTMLElement) {
         this.#root = root;
         this.#domToVNodeMap = new WeakMap();
+        this.#nodeIdToElement = new Map();
 
         this.#observerOptions = {
             subtree: true,
@@ -50,9 +52,10 @@ export class VDomHandler {
 
 
     _createVNode(root: Node, parent: VNode | null = null): VNode {
+        const id = generateNodeId();
         if (root.nodeType === Node.TEXT_NODE) {
             return {
-                nodeId: generateNodeId(),
+                nodeId: id,
                 tagName: "TEXT",
                 options: { text: root.textContent },
                 parentNode: parent,
@@ -62,7 +65,7 @@ export class VDomHandler {
         if (!(root instanceof HTMLElement)) {
             // Non-element node (comment, document fragment, etc.)
             return {
-                nodeId: generateNodeId(),
+                nodeId: id,
                 tagName: "UNKNOWN",
                 options: { children: [] },
                 parentNode: parent,
@@ -72,7 +75,7 @@ export class VDomHandler {
         const el = root; // now SAFE
 
         const vNode: VNode = {
-            nodeId: generateNodeId(),
+            nodeId: id,
             tagName: el.tagName,
             options: {
                 children: [],
@@ -81,6 +84,7 @@ export class VDomHandler {
             },
             parentNode: parent,
         };
+        this.#nodeIdToElement.set(id, el);
 
         for (const attr of Array.from(el.attributes)) {
             vNode.options.attrs![attr.name] = attr.value;
@@ -94,8 +98,7 @@ export class VDomHandler {
     private _buildVirtualDom(root: Node, parent: VNode | null): VNode | null {
         if (
             root instanceof HTMLElement &&
-            (root.tagName === "SCRIPT" ||
-                root.classList.contains("voicenav-vnode-ignore"))
+            (root.tagName === "SCRIPT" || root.tagName === "STYLE" || root.classList.contains("voicenav-vnode-ignore"))
         ) {
             return null;
         }
@@ -208,19 +211,30 @@ export class VDomHandler {
     }
 
     private _renderRemovedNodes(removedNodes: NodeList): void {
+        const cleanup = (node: Node) => {
+            const vnode = this.#domToVNodeMap.get(node);
+            if (!vnode) return;
+
+            this.#nodeIdToElement.delete(vnode.nodeId);
+            this.#domToVNodeMap.delete(node);
+
+            if (node.hasChildNodes()) {
+                node.childNodes.forEach(cleanup);
+            }
+        };
+
         for (const node of Array.from(removedNodes)) {
             const vnode = this.#domToVNodeMap.get(node);
-            if (!vnode || !vnode.parentNode) continue;
+            if (vnode?.parentNode) {
+                const parent = vnode.parentNode;
+                parent.options.children = parent.options.children?.filter(
+                    c => c !== vnode
+                );
+            }
 
-            const parent = vnode.parentNode;
-            parent.options.children = parent.options.children?.filter(
-                (c) => c !== vnode
-            );
-
-            this.#domToVNodeMap.delete(node);
+            cleanup(node);
         }
     }
-
 
     _renderAttributes(mutation: MutationRecord) {
         const domNode = mutation.target;
@@ -268,4 +282,14 @@ export class VDomHandler {
             }
         }
     };
+
+    getElementByVNodeId(nodeId: string): HTMLElement | null {
+        return this.#nodeIdToElement.get(nodeId) ?? null;
+    }
+
+
+    disconnect() {
+        this.#mutationObserver.disconnect();
+    }
+
 }
