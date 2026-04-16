@@ -1,6 +1,6 @@
 {
   "name": "@voicenav/sdk",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "VoiceNav browser SDK for VDOM capture and task execution",
   "main": "./dist/index.js",
@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "dev": "tsup --watch"
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -28,7 +29,7 @@
   },
   "homepage": "https://github.com/UjjawalGusain/VoiceNav-SDK#readme",
   "author": "Ujjawal Gusain",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"

@@ -1,4 +1,4 @@
-const BASE_URL = "http://107.22.136.219:8000"
+const BASE_URL = "http://184.72.74.143:8000"
 
 export const APIS = {
     CREATE_TASK: `${BASE_URL}/task/create`,
